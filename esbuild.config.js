@@ -12,7 +12,8 @@ const options = {
   target: 'node18',
   format: 'esm',
   packages: 'external',
-  sourcemap: true,
+  minify: true,
+  sourcemap: false,
 };
 
 async function build() {
