@@ -1,0 +1,32 @@
+name: Build
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20.18.0' # Use the Node.js version you need
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build with esbuild
+        run: pnpm run build
+
+      - name: List build artifacts
+        run: ls -R dist

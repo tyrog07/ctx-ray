@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '20.18.0' # Use the Node.js version you need
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build with esbuild
+        run: pnpm run build
+
+      - name: List build artifacts
+        run: ls -R dist
+
+      - name: Check NPM_TOKEN
+        run: |
+          if [ -z "${{ secrets.NPM_TOKEN }}" ]; then
+            echo "NPM_TOKEN is not set"
+            exit 1
+          else
+            echo "NPM_TOKEN is set"
+          fi
+
+      - name: Verify package name
+        run: |
+          PACKAGE_NAME=$(jq -r '.name' package.json)
+          if [ "$PACKAGE_NAME" != "ctx-ray" ]; then
+            echo "Package name is incorrect: $PACKAGE_NAME"
+            exit 1
+          else
+            echo "Package name is correct: $PACKAGE_NAME"
+          fi
+
+      - name: Configure npm
+        run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
