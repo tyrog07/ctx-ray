@@ -1,0 +1,77 @@
+{
+  "name": "ctx-ray",
+  "version": "1.0.0",
+  "description": "A surgical CLI tool that bundles your codebase into an LLM-friendly XML context file",
+  "author": "Rajat Ninawe",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "ctx-ray": "./dist/cli.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node esbuild.config.js && tsc --emitDeclarationOnly",
+    "dev": "node esbuild.config.js --watch",
+    "lint": "eslint src tests --ext .ts",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "start": "node dist/cli.js",
+    "test": "vitest run",
+    "prepublishOnly": "pnpm run build",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "clipboardy": "^4.0.0",
+    "commander": "^12.1.0",
+    "fast-glob": "^3.3.2",
+    "ignore": "^5.3.2",
+    "ora": "^8.1.1",
+    "tiktoken": "^1.0.20",
+    "ts-morph": "^23.0.0",
+    "xmlbuilder2": "^3.1.1"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.2",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@types/node": "^20.14.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "esbuild": "^0.28.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
+    "typescript": "^5.5.0",
+    "vitest": "^1.6.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "pnpm": {
+    "approvedBuilds": [
+      "esbuild"
+    ]
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "context",
+    "xml",
+    "cli",
+    "codebase",
+    "chatgpt",
+    "claude",
+    "gemini"
+  ]
+}

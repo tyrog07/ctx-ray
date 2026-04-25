@@ -1,0 +1,11 @@
+# ctx-ray ignore file
+# This file is intentionally empty — ctx-ray manages itself
+*.ctx.xml
+.ctx/
+
+
+#common
+node_modules
+dist
+.aiignore
+.ctx-ray.json
