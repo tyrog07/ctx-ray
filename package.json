@@ -1,6 +1,6 @@
 {
   "name": "ctx-ray",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "A surgical CLI tool that bundles your codebase into an LLM-friendly XML context file",
   "author": "Rajat Ninawe",
   "license": "MIT",
@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "chalk": "^5.3.0",
+    "chokidar": "^5.0.0",
     "clipboardy": "^4.0.0",
     "commander": "^12.1.0",
     "fast-glob": "^3.3.2",

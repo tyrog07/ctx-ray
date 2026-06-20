@@ -35,6 +35,7 @@ export interface BundleOptions {
   outputFormat: 'xml' | 'markdown';
   includeTree: boolean;
   includeMetadata: boolean;
+  prompt?: string;
 }
 
 export interface TokenReport {

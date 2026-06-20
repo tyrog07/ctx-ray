@@ -76,6 +76,7 @@ export function saveConfig(root: string, config: Partial<CtxRayConfig>): void {
   const existing = loadConfig(root);
   const merged = { ...existing, ...config };
   // Don't persist defaultIgnores — those are built-in
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { defaultIgnores: _d, ...persistable } = merged;
   fs.writeFileSync(configPath, JSON.stringify(persistable, null, 2) + '\n', 'utf-8');
 }

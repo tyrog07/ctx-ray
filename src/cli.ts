@@ -9,9 +9,8 @@ import { scanFiles } from './core/scanner.js';
 import { traceImports } from './core/analyzer.js';
 import { buildXmlBundle, writeBundle, appendToBundle } from './core/bundler.js';
 import { buildTokenReport, formatTokenCount } from './core/tokenizer.js';
-import { loadConfig, saveConfig, ensureOutputDir, addToGitignore } from './utils/config.js';
+import { loadConfig, saveConfig, addToGitignore } from './utils/config.js';
 import { initAiIgnore } from './utils/ignore.js';
-import { isGitRepo } from './utils/git.js';
 import type { FileEntry } from './types.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -99,6 +98,9 @@ program
   .option('--clip', 'Copy output to clipboard instead of writing a file')
   .option('--name <name>', 'Named snapshot (overrides --output)')
   .option('--tmp', 'Delete the output file after 5 minutes')
+  .option('--prompt <text>', 'Embed custom instructions directly into the bundle')
+  .option('--prompt-file <path>', 'Load instructions from a file and embed them')
+  .option('-w, --watch', 'Watch files for changes and auto-regenerate the bundle')
   .action(async (entry: string | undefined, opts) => {
     printBanner();
 
@@ -110,104 +112,138 @@ program
     const outputDir = opts.outputDir ?? config.outputDir;
     const tokenLimit = opts.limit ?? config.tokenLimit;
 
-    const spinner = ora({ text: 'Scanning files…', color: 'cyan' }).start();
-
-    let files: FileEntry[];
-
-    try {
-      if (entry) {
-        // ── Surgical Mode ──────────────────────────────────────────────────
-        spinner.text = `Tracing imports from ${chalk.cyan(entry)}…`;
-        files = await traceImports(entry, cwd, opts.depth ?? 5);
-        spinner.succeed(
-          `Surgical trace complete — ${chalk.cyan(String(files.length))} files found`,
-        );
+    let prompt: string | undefined = opts.prompt;
+    if (!prompt && opts.promptFile) {
+      if (fs.existsSync(opts.promptFile)) {
+        prompt = fs.readFileSync(opts.promptFile, 'utf-8');
       } else {
-        // ── Full-Project Mode ──────────────────────────────────────────────
-        files = await scanFiles({
-          root: cwd,
-          depth: opts.depth,
-          extraIgnores: opts.exclude ?? [],
-          respectGitignore: opts.gitignore !== false,
-          respectAiignore: opts.aiignore !== false,
-          diff: opts.diff ?? false,
-          since: opts.since,
-        });
-        spinner.succeed(`Scan complete — ${chalk.cyan(String(files.length))} files found`);
+        console.log(chalk.yellow(`  ⚠ Prompt file not found: ${opts.promptFile}`));
       }
-    } catch (err) {
-      spinner.fail('Scan failed');
-      console.error(chalk.red(`\n  Error: ${(err as Error).message}\n`));
-      process.exit(1);
     }
 
-    if (files.length === 0) {
-      console.log(chalk.yellow('\n  No files matched. Check your ignore rules.\n'));
-      process.exit(0);
-    }
+    const runPack = async (isWatchEvent = false) => {
+      const spinner = ora({ text: 'Scanning files…', color: 'cyan' }).start();
 
-    // ── Token Budget Check ─────────────────────────────────────────────────
-    const tokenSpinner = ora({ text: 'Counting tokens…', color: 'cyan' }).start();
-    const report = await buildTokenReport(files, tokenLimit);
-    tokenSpinner.stop();
-    printTokenReport(report);
+      let files: FileEntry[];
 
-    // ── Build XML ──────────────────────────────────────────────────────────
-    const bundleSpinner = ora({ text: 'Building XML bundle…', color: 'cyan' }).start();
-    const xml = buildXmlBundle({
-      files,
-      root: cwd,
-      outputFormat: 'xml',
-      includeTree: opts.tree !== false,
-      includeMetadata: opts.metadata !== false,
-    });
-    bundleSpinner.succeed('XML bundle built');
-
-    // ── Output ─────────────────────────────────────────────────────────────
-    if (opts.clip) {
-      const clipSpinner = ora({ text: 'Copying to clipboard…', color: 'cyan' }).start();
       try {
-        const { default: clipboardy } = await import('clipboardy');
-        await clipboardy.write(xml);
-        clipSpinner.succeed('Copied to clipboard — no file written');
-      } catch {
-        clipSpinner.fail('Clipboard copy failed — falling back to file output');
-        const outPath = writeBundle(xml, path.join(cwd, outputDir), outputFile);
-        printSummary(files, outPath);
+        if (entry) {
+          // ── Surgical Mode ──────────────────────────────────────────────────
+          spinner.text = `Tracing imports from ${chalk.cyan(entry)}…`;
+          files = await traceImports(entry, cwd, opts.depth ?? 5);
+          spinner.succeed(
+            `Surgical trace complete — ${chalk.cyan(String(files.length))} files found`,
+          );
+        } else {
+          // ── Full-Project Mode ──────────────────────────────────────────────
+          files = await scanFiles({
+            root: cwd,
+            depth: opts.depth,
+            extraIgnores: opts.exclude ?? [],
+            respectGitignore: opts.gitignore !== false,
+            respectAiignore: opts.aiignore !== false,
+            diff: opts.diff ?? false,
+            since: opts.since,
+          });
+          spinner.succeed(`Scan complete — ${chalk.cyan(String(files.length))} files found`);
+        }
+      } catch (err) {
+        spinner.fail('Scan failed');
+        console.error(chalk.red(`\n  Error: ${(err as Error).message}\n`));
+        if (isWatchEvent) return;
+        process.exit(1);
       }
-      return;
-    }
 
-    const resolvedDir = path.join(cwd, outputDir);
+      if (files.length === 0) {
+        console.log(chalk.yellow('\n  No files matched. Check your ignore rules.\n'));
+        if (isWatchEvent) return;
+        process.exit(0);
+      }
 
-    let outPath: string;
-    if (opts.append) {
-      const existingPath = path.join(resolvedDir, outputFile);
-      if (fs.existsSync(existingPath)) {
-        outPath = appendToBundle(existingPath, files);
-        console.log(chalk.cyan(`  Appended ${files.length} file(s) to existing bundle`));
+      // ── Token Budget Check ─────────────────────────────────────────────────
+      const tokenSpinner = ora({ text: 'Counting tokens…', color: 'cyan' }).start();
+      const report = await buildTokenReport(files, tokenLimit);
+      tokenSpinner.stop();
+      printTokenReport(report);
+
+      // ── Build XML ──────────────────────────────────────────────────────────
+      const bundleSpinner = ora({ text: 'Building XML bundle…', color: 'cyan' }).start();
+      const xml = buildXmlBundle({
+        files,
+        root: cwd,
+        outputFormat: 'xml',
+        includeTree: opts.tree !== false,
+        includeMetadata: opts.metadata !== false,
+        prompt,
+      });
+      bundleSpinner.succeed('XML bundle built');
+
+      // ── Output ─────────────────────────────────────────────────────────────
+      if (opts.clip) {
+        const clipSpinner = ora({ text: 'Copying to clipboard…', color: 'cyan' }).start();
+        try {
+          const { default: clipboardy } = await import('clipboardy');
+          await clipboardy.write(xml);
+          clipSpinner.succeed('Copied to clipboard — no file written');
+        } catch {
+          clipSpinner.fail('Clipboard copy failed — falling back to file output');
+          const outPath = writeBundle(xml, path.join(cwd, outputDir), outputFile);
+          printSummary(files, outPath);
+        }
+        return;
+      }
+
+      const resolvedDir = path.join(cwd, outputDir);
+
+      let outPath: string;
+      if (opts.append) {
+        const existingPath = path.join(resolvedDir, outputFile);
+        if (fs.existsSync(existingPath)) {
+          outPath = appendToBundle(existingPath, files);
+          console.log(chalk.cyan(`  Appended ${files.length} file(s) to existing bundle`));
+        } else {
+          outPath = writeBundle(xml, resolvedDir, outputFile);
+        }
       } else {
         outPath = writeBundle(xml, resolvedDir, outputFile);
       }
-    } else {
-      outPath = writeBundle(xml, resolvedDir, outputFile);
-    }
 
-    printSummary(files, outPath);
+      printSummary(files, outPath);
 
-    // ── Auto-purge (--tmp) ─────────────────────────────────────────────────
-    if (opts.tmp) {
-      console.log(chalk.dim('  ⏱  File will be deleted in 5 minutes…\n'));
-      setTimeout(
-        () => {
-          try {
-            fs.unlinkSync(outPath);
-          } catch {
-            // File already gone — no problem
-          }
-        },
-        5 * 60 * 1000,
-      ).unref();
+      // ── Auto-purge (--tmp) ─────────────────────────────────────────────────
+      if (opts.tmp && !isWatchEvent) {
+        console.log(chalk.dim('  ⏱  File will be deleted in 5 minutes…\n'));
+        setTimeout(
+          () => {
+            try {
+              fs.unlinkSync(outPath);
+            } catch {
+              // File already gone — no problem
+            }
+          },
+          5 * 60 * 1000,
+        ).unref();
+      }
+    };
+
+    await runPack();
+
+    if (opts.watch) {
+      const { watch } = await import('chokidar');
+      // Watch the current directory, ignoring .ctx/ and node_modules/
+      const watcher = watch('.', {
+        ignored: [/(^|[/\\])\../, 'node_modules/**', path.join(outputDir, '**')],
+        persistent: true,
+        ignoreInitial: true,
+      });
+
+      console.log(chalk.cyan('\n  👀 Watching for file changes...\n'));
+
+      watcher.on('change', async (filePath) => {
+        console.log(chalk.dim(`\n  File changed: ${filePath}`));
+        await runPack(true);
+        console.log(chalk.cyan('\n  👀 Watching for file changes...\n'));
+      });
     }
   });
 
