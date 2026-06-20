@@ -1,5 +1,4 @@
 import { execSync } from 'child_process';
-import path from 'path';
 
 /**
  * Returns a set of relative file paths that have changed since the given ref.

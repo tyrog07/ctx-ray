@@ -2,7 +2,7 @@
  * Estimates the complexity of a source file based on heuristics.
  * Looks at: cyclomatic indicators, nesting depth, line count, and token density.
  */
-export function estimateComplexity(content: string, language: string): 'Low' | 'Medium' | 'High' {
+export function estimateComplexity(content: string, _language: string): 'Low' | 'Medium' | 'High' {
   const lines = content.split('\n');
   const lineCount = lines.length;
 

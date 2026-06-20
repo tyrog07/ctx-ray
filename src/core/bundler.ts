@@ -38,6 +38,12 @@ export function buildXmlBundle(options: BundleOptions): string {
     doc.ele('directory_blueprint').txt(treeText).up();
   }
 
+  // ── Instructions ───────────────────────────────────────────────────────────
+  if (options.prompt) {
+    const safePrompt = sanitiseForXml(options.prompt);
+    doc.ele('instruction').txt(safePrompt).up();
+  }
+
   // ── File Blocks ────────────────────────────────────────────────────────────
   const filesEle = doc.ele('files');
 
