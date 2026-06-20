@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/ctx--ray-v1.0.0-cyan?style=for-the-badge" alt="ctx-ray" />
+  <img src="https://img.shields.io/badge/ctx--ray-v2.0.0-cyan?style=for-the-badge" alt="ctx-ray" />
   <img src="https://img.shields.io/badge/AI--Ready-XML%20First-blueviolet?style=for-the-badge" />
   <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" />
 </p>
@@ -57,7 +57,13 @@ ctx-ray pack --diff
 # 5. Only files changed in the last hour
 ctx-ray pack --since "1 hour ago"
 
-# 6. Copy straight to clipboard — zero files written
+# 6. Embed custom instructions directly into the XML
+ctx-ray pack --prompt "Review this code for security vulnerabilities"
+
+# 7. Watch for file changes and auto-regenerate the bundle
+ctx-ray pack --watch
+
+# 8. Copy straight to clipboard — zero files written
 ctx-ray pack --clip
 ```
 
@@ -84,6 +90,9 @@ The core command. Bundles files into `.ctx/ai-context.xml`.
 | `--diff` | Include only files changed vs HEAD | — |
 | `--since <ref>` | Include files changed since git ref/time | — |
 | `--append` | Append to existing bundle (incremental) | — |
+| `--prompt <text>` | Embed custom instructions directly into bundle | — |
+| `--prompt-file <path>` | Load instructions from a file and embed them | — |
+| `-w, --watch` | Watch files and auto-regenerate the bundle | — |
 | `--clip` | Copy XML to clipboard instead of writing | — |
 | `--name <name>` | Named snapshot (`<name>.ctx.xml`) | — |
 | `--tmp` | Auto-delete output after 5 minutes | — |
@@ -155,6 +164,26 @@ my-project/
 ```
 
 **Why XML?** Claude 3.5/3.7, Gemini 1.5/2.0, and GPT-4 all handle XML tags better than raw Markdown for large codebases. Tag pairing makes file boundaries explicit, eliminating the "Lost in the Middle" syndrome.
+
+---
+
+## ⚡ v2 Features
+
+### Prompt Injection
+Embed instructions directly into the bundle, so you can copy and paste the entire output to the LLM in one go.
+```bash
+ctx-ray pack --prompt "Find the memory leak in the login handler."
+# OR
+ctx-ray pack --prompt-file ./instructions.md
+```
+This generates an `<instruction>` block at the top of the bundle containing your prompt.
+
+### Watch Mode
+Keep your AI context up-to-date while you code. 
+```bash
+ctx-ray pack --watch
+```
+`ctx-ray` will watch the resolved files and re-bundle your context the moment you save a file.
 
 ---
 
